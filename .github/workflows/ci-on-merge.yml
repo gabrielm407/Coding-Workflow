@@ -1,0 +1,33 @@
+name: CI on Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up C++ environment
+        run: sudo apt-get install g++ cmake
+
+      - name: Build the project
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make
+
+      - name: Run the application
+        run: |
+          cd build
+          ./my-cpp-project  # Replace with the actual executable name if different
+
+      - name: Run tests
+        run: |
+          cd build
+          ./my-cpp-project < tests/sample_input.txt  # Replace with the actual executable name if different

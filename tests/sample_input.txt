@@ -1,0 +1,5 @@
+sample_input.txt
+
+This is a sample input for testing the application.
+You can add multiple lines of input data here.
+Make sure to format it according to the expected input structure of your program.
