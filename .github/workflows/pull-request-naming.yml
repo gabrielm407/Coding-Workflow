@@ -1,4 +1,6 @@
 name: Enforce Branch Naming Convention
+permissions:
+  contents: read
 
 on:
   pull_request:
