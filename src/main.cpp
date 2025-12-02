@@ -1,9 +1,8 @@
 #include <iostream>
 #include "utils.hpp"
 
-using namespace std;
-
 int main() {
-    cout << "Hello, World!" << endl;
+    printHello();
+    std::cout << "2 + 3 = " << add(2, 3) << std::endl;
     return 0;
 }

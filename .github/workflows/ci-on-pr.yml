@@ -1,30 +1,28 @@
-name: CI on Pull Request
+name: CI - Build and Run C++
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
+  push:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-and-run:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up C++ environment
-        run: sudo apt-get install g++ cmake
-
-      - name: Build the project
+      - name: Install dependencies
         run: |
-          mkdir build
-          cd build
-          cmake ..
-          make
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
 
-      - name: Run tests
-        run: |
-          cd build
-          ./your_executable_name_here  # Replace with the actual executable name
-          # Add commands to run your tests here if applicable
+      - name: Configure CMake
+        run: cmake -S . -B build
+
+      - name: Build
+        run: cmake --build build --config Release -- -j
+
+      - name: Run binary
+        run: ./build/CPPProject

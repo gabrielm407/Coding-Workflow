@@ -7,7 +7,7 @@ int add(int a, int b) {
 }
 
 void printHello() {
-    cout << "Hello, World!" << endl;
+    std::cout << "Hello, World!" << std::endl;
 }
 
 // Additional utility functions can be implemented here.
