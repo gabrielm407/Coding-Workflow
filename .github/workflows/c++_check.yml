@@ -1,0 +1,69 @@
+name: CI - Build, Lint, SAST (PR)
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake clang clang-tidy cppcheck python3-pip
+          pip3 install reviewdog
+
+      - name: Configure CMake (export compile commands for clang-tidy)
+        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build --config Release -- -j
+
+      - name: Run unit tests (if any)
+        run: |
+          if [ -f build/CTestTestfile.cmake ]; then
+            ctest --test-dir build --output-on-failure || true
+          fi
+
+      - name: Run cppcheck (XML output)
+        run: |
+          cppcheck --enable=all --inconclusive --xml --xml-version=2 src 2> cppcheck-report.xml || true
+
+      - name: Report cppcheck results to PR (reviewdog)
+        uses: reviewdog/action-cppcheck@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          filter_mode: added
+          name: cppcheck
+          input: cppcheck-report.xml
+          level: warning
+
+      - name: Run clang-tidy (via reviewdog)
+        uses: reviewdog/action-clang-tidy@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          filter_mode: added
+          clang_tidy_args: "-p=build"
+          name: clang-tidy
+          level: warning
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: cpp
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v2
