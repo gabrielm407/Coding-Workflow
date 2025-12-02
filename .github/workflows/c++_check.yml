@@ -6,13 +6,14 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-      pull-requests: write
 
     steps:
       - name: Checkout
@@ -21,44 +22,61 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake clang clang-tidy cppcheck python3-pip
-          pip3 install reviewdog
+          sudo apt-get install -y build-essential cmake clang clang-tidy cppcheck git
 
-      - name: Configure CMake (export compile commands for clang-tidy)
+      - name: Setup Go (to install reviewdog)
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Install reviewdog CLI
+        run: |
+          go install github.com/reviewdog/reviewdog/cmd/reviewdog@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Configure CMake (export compile commands)
         run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
         run: cmake --build build --config Release -- -j
 
-      - name: Run unit tests (if any)
+      - name: Run binary (capture output)
+        id: run-binary
         run: |
-          if [ -f build/CTestTestfile.cmake ]; then
-            ctest --test-dir build --output-on-failure || true
+          if [ -x build/CPPProject ]; then
+            ./build/CPPProject | tee run-output.txt
+          else
+            echo "No executable found" > run-output.txt
+            exit 1
           fi
 
-      - name: Run cppcheck (XML output)
+      - name: Run cppcheck (XML)
         run: |
-          cppcheck --enable=all --inconclusive --xml --xml-version=2 src 2> cppcheck-report.xml || true
+          cppcheck --enable=all --inconclusive --force --xml --xml-version=2 src 2> cppcheck-report.xml || true
 
-      - name: Report cppcheck results to PR (reviewdog)
-        uses: reviewdog/action-cppcheck@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-review
-          filter_mode: added
-          name: cppcheck
-          input: cppcheck-report.xml
-          level: warning
+      - name: Report cppcheck to PR (reviewdog)
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reviewdog -f=cppcheck -name="cppcheck" \
+            -reporter=github-pr-review -filter-mode=added -level=warning < cppcheck-report.xml || true
 
-      - name: Run clang-tidy (via reviewdog)
-        uses: reviewdog/action-clang-tidy@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-review
-          filter_mode: added
-          clang_tidy_args: "-p=build"
-          name: clang-tidy
-          level: warning
+      - name: Run clang-tidy (using compile_commands)
+        run: |
+          # run clang-tidy over all .cpp files using compile_commands.json
+          FILES=$(find src -name '*.cpp' -or -name '*.cc' -or -name '*.cxx')
+          if [ -n "$FILES" ]; then
+            clang-tidy -p build $FILES 2> clang-tidy.out || true
+          else
+            echo "No source files found for clang-tidy" > clang-tidy.out
+          fi
+
+      - name: Report clang-tidy to PR (reviewdog)
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reviewdog -f=clang-tidy -name="clang-tidy" \
+            -reporter=github-pr-review -filter-mode=added -level=warning < clang-tidy.out || true
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
