@@ -1,0 +1,17 @@
+name: Enforce Branch Naming Convention
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          if [[ ! "$BRANCH_NAME" =~ ^feature/ ]]; then
+            echo "Error: Branch name must start with 'feature/'."
+            exit 1
+          fi
