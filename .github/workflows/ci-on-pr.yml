@@ -26,5 +26,5 @@ jobs:
       - name: Build
         run: cmake --build build --config Release -- -j
 
-      - name: Run binary
+      - name: Run C++ code
         run: ./build/CPPProject
