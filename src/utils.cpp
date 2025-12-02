@@ -1,3 +1,4 @@
+#include <iostream>
 #include "utils.hpp"
 
 // Example utility function implementation
@@ -6,7 +7,7 @@ int add(int a, int b) {
 }
 
 void printHello() {
-    std::cout << "Hello, World!" << std::endl;
+    cout << "Hello, World!" << endl;
 }
 
 // Additional utility functions can be implemented here.
